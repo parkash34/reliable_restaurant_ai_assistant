@@ -89,8 +89,8 @@ def check_out_guardrail(response):
         if word in message:
             logger.error(f"Output guardrails triggered: {response}")
             return False, "Security check failed"
-        if not message.strip():
-            return False, "Empty response"
+    if not message.strip():
+        return False, "Empty response"
     return True, None
     
 def validate_ai_response(response):
@@ -378,7 +378,7 @@ def ask_ai(chat_history):
                 headers={"Authorization": f"Bearer {api_key}"},
                 json = {
                     "model": "llama-3.3-70b-versatile",
-                    "temperature" : 0.3,
+                    "temperature" : 0.2,
                     "max_tokens" : 500,
                     "messages" : [
                         {"role" : "system", "content" : system_prompt()},
@@ -409,7 +409,7 @@ def ask_ai(chat_history):
                     details=error
                 )
             
-            return {"reply": json.loads(raw)}
+            return {"reply": result}
         content = message["content"]
         try:
             result = json.loads(content)
