@@ -344,6 +344,10 @@ def ask_ai(chat_history):
             },
             timeout=10
         )
+        is_valid, error = check_input_guardrail(response)
+
+        if not is_valid and not validate_ai_response(response):
+            return error
         response.raise_for_status()
         message = response.json()["choices"][0]["message"]
 
