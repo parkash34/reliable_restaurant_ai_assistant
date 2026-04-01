@@ -431,3 +431,25 @@ def ask_ai(chat_history):
             message="Something went wrong",
             details=str(e)
         )
+    
+@app.post("/book")
+def booking_ai(message: Message):
+    session_id = message.session_id
+    user_message = message.message
+
+
+    is_valid, error = check_input_guardrail(user_message)
+
+    if not is_valid:
+        return {"reply" : error}
+    
+    if session_id not in memory:
+        memory[session_id] = []
+    
+    memory[session_id].append({"role": "user", "content": user_message})
+    ai_reply = ask_ai(memory[session_id])
+
+    if isinstance(ai_reply, dict) and "reply" in ai_reply:
+        memory[session_id].append({"role" : "assistant", "content" : json.dumps(ai_reply["reply"])})
+    
+    return ai_reply
