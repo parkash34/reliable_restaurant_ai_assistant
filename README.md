@@ -161,6 +161,10 @@ API_KEY=your_groq_api_key_here
 - Conversation history resets when server restarts
 - Assistant only handles Bella Italia related questions
 
+## 👤 Author
+
+**Ohm Parkash** — [LinkedIn](https://www.linkedin.com/in/om-parkash34/) · [GitHub](https://github.com/parkash34)
+
 
 
 
