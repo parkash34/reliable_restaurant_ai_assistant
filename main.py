@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-load_dotenv
+load_dotenv()
 api_key = os.getenv("API_KEY")
 if not api_key: 
     raise ValueError("API Key is missing in .env file")
@@ -80,7 +80,7 @@ def check_input_guardrail(message):
         if topic in message_lower:
             logger.warning(f"Input guardrail triggered: {message}")
             return False, "I can only help with Bella Italia related questions"
-        return True, None
+    return True, None
     
 def check_out_guardrail(response):
     message = response.get("message", "").lower()
@@ -91,7 +91,7 @@ def check_out_guardrail(response):
             return False, "Security check failed"
         if not message.strip():
             return False, "Empty response"
-        return True, None
+    return True, None
     
 def validate_ai_response(response):
     required_fields = ["step", "message", "action_taken", "missing_info"]
@@ -104,12 +104,12 @@ def validate_ai_response(response):
         if response["step"] not in valid_steps:
             logger.error(f"Invalid step: {response['step']}")
             return False
-        return True
+    return True
 
 def check_availability(date, time, people):
     if restaurant["total_tables"] <= 0:
         return "Sorry, all tables have already been booked"
-    if int(people) > 8 and int(people) < 1:
+    if int(people) > 8 or int(people) < 1:
         return "Sorry, we for each table, we serve people between 1 to 8"
     return "Tables are available"
 
@@ -344,10 +344,7 @@ def ask_ai(chat_history):
             },
             timeout=10
         )
-        is_valid, error = check_input_guardrail(response)
 
-        if not is_valid and not validate_ai_response(response):
-            return error
         response.raise_for_status()
         message = response.json()["choices"][0]["message"]
 
@@ -395,6 +392,23 @@ def ask_ai(chat_history):
 
             final_response.raise_for_status()
             raw = final_response.json()["choices"][0]["message"]["content"]
+            result = json.loads(raw)
+
+            if not validate_ai_response(result):
+                return create_error_response(
+                    code="INVALID_RESPONSE",
+                    message="Unexpected response format.",
+                    details="Please try again."
+                )
+            
+            is_valid, error = check_out_guardrail(result)
+            if not is_valid:
+                return create_error_response(
+                    code="SECURITY_ERROR",
+                    message="Response blocked by security check.",
+                    details=error
+                )
+            
             return {"reply": json.loads(raw)}
         content = message["content"]
         try:
