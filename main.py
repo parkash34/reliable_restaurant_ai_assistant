@@ -326,3 +326,108 @@ def system_prompt():
     Do not add any text outside the JSON.
     """
 
+def ask_ai(chat_history):
+    try:
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json = {
+                "model": "llama-3.3-70b-versatile",
+                "temperature" : 0.3,
+                "max_tokens" : 500,
+                "messages" : [
+                    {"role" : "system", "content" : system_prompt()},
+                    *chat_history
+                ],
+                "tools" : tools,
+                "tool_choice" : "auto"
+            },
+            timeout=10
+        )
+        response.raise_for_status()
+        message = response.json()["choices"][0]["message"]
+
+        if message.get("tool_calls"):
+            tool_call = message["tool_calls"][0]
+            function_name = tool_call["function"]["name"]
+            arguments = json.loads(tool_call["function"]["arguments"])
+
+            if function_name == "check_availability":
+                result = check_availability(**arguments)
+            elif function_name == "check_menu":
+                result = check_menu(**arguments)
+            elif function_name == "check_dietary_options":
+                result = check_dietary_options(**arguments)
+            elif function_name == "book_table":
+                result = book_table(**arguments)
+            elif function_name == "get_restaurant_info":
+                result = get_restaurant_info()
+            else:
+                result = "Function not found"
+            
+            chat_history.append(message)
+            chat_history.append({
+                "role" : "tool",
+                "tool_call_id" : tool_call["id"],
+                "content" : result
+            })
+            
+            final_response = requests.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json = {
+                    "model": "llama-3.3-70b-versatile",
+                    "temperature" : 0.3,
+                    "max_tokens" : 500,
+                    "messages" : [
+                        {"role" : "system", "content" : system_prompt()},
+                        *chat_history
+                    ],
+                    "tools" : tools,
+                    "tool_choice" : "auto"
+                },
+                timeout=10
+            )
+
+            final_response.raise_for_status()
+            raw = final_response.json()["choices"][0]["message"]["content"]
+            return {"reply": json.loads(raw)}
+        content = message["content"]
+        try:
+            result = json.loads(content)
+            return {"reply" : result}
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON from AI: {raw}")
+            return create_error_response(
+                code="INVALIDE_RESPONSE",
+                message="Unexpected response format.",
+                details="Please try again."
+            )
+    except requests.exceptions.Timeout:
+        logger.error(f"Request timeout")
+        return create_error_response(
+            code="API_TIMEOUT",
+            message="Service temporarily unavailable.",
+            details="Please try again in a few seconds."
+        )
+    except requests.exceptions.ConnectionError:
+        logger.error("Connection error")
+        return create_error_response(
+            code="CONNECTION_ERROR",
+            message="Cannot connect to AI service.",
+            details="Please check your connection."
+        )
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP Error : {e.response.status_code}")
+        return create_error_response(
+            code="API_ERROR",
+            message="AI service error",
+            details=f"Status : {e.response.status_code}"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected: {str(e)}")
+        return create_error_response(
+            code="UNKNOWN_ERROR",
+            message="Something went wrong",
+            details=str(e)
+        )
